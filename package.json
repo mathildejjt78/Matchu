@@ -1,0 +1,16 @@
+{
+  "name": "matcha-experience",
+  "version": "1.0.0",
+  "description": "Matcha Experience Website",
+  "scripts": {
+    "sass:watch": "sass --watch --no-source-map src/styles/main.scss:src/styles/main.css",
+    "sass:build": "sass --no-source-map src/styles/main.scss:src/styles/main.css",
+    "serve": "http-server . -p 8080 --cors",
+    "start": "npm run sass:build && concurrently \"npm run sass:watch\" \"npm run serve\""
+  },
+  "dependencies": {
+    "sass": "^1.69.0",
+    "http-server": "^14.1.1",
+    "concurrently": "^8.2.2"
+  }
+} 

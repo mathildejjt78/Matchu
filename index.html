@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matcha Experience</title>
+    <!-- Importation de Three.js depuis CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=Righteous&display=swap" rel="stylesheet">
+    <!-- Styles -->
+    <link rel="stylesheet" href="src/styles/main.css?v=1.0.2">
+</head>
+<body>
+    <!-- Navigation -->
+    <header class="header">
+        <nav class="main-nav">
+            <div class="nav-left">
+                <a href="#" class="logo"><span>MATCHU</span></a>
+            </div>
+            <div class="nav-right">
+                <a href="#shop">SHOP</a>
+                <a href="#journal">JOURNAL</a>
+                <a href="#recipes">RECIPES</a>
+                <a href="#about">ABOUT</a>
+                <a href="#services">SERVICES</a>
+                <button class="cart-button">CART</button>
+                <button class="menu-button">
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Section Hero avec Three.js -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="text-content">
+                <h1>Discover<br>the Art of<br>Matcha</h1>
+                <p>Experience the finest Japanese green tea powder</p>
+            </div>
+            <div id="threejs-container"></div>
+        </div>
+    </section>
+
+    <!-- Section About -->
+    <section id="about" class="about">
+        <h2>Our Story</h2>
+        <p>We bring the essence of Japanese tea culture to your table, with our premium matcha sourced directly from Uji, Kyoto.</p>
+    </section>
+
+    <!-- Section Products -->
+    <section id="products" class="products">
+        <h2>Our Collection</h2>
+        <div class="product-grid">
+            <div class="product-card">
+                <div class="product-image">
+                    <img src="src/assets/img-1.jpeg" alt="Ceremonial Grade Matcha">
+                </div>
+                <h3>Ceremonial Grade</h3>
+                <p>The finest quality matcha for traditional ceremonies</p>
+            </div>
+            <div class="product-card">
+                <div class="product-image">
+                    <img src="src/assets/img-2.jpeg" alt="Premium Grade Matcha">
+                </div>
+                <h3>Premium Grade</h3>
+                <p>Perfect for daily enjoyment</p>
+            </div>
+            <div class="product-card">
+                <div class="product-image latte-image">
+                    <img src="src/assets/img-3.jpeg" alt="Latte Grade Matcha">
+                </div>
+                <h3>Latte Grade</h3>
+                <p>Ideal for matcha lattes and beverages</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section Contact -->
+    <section id="contact" class="contact">
+        <h2>Get in Touch</h2>
+        <p>Experience the authentic taste of Japanese matcha</p>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>© 2024 Matcha Experience</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="src/js/script.js"></script>
+</body>
+</html> 
