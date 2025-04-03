@@ -5,12 +5,13 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('threejs-container').appendChild(renderer.domElement);
 
-// Variables pour la position de la souris
+// Variables pour la position de la souris - améliorées pour un meilleur suivi
 let mouse = new THREE.Vector2(0, 0);
 let targetMouse = new THREE.Vector2(0, 0);
 let prevMouse = new THREE.Vector2(0, 0);
 let mouseVelocity = new THREE.Vector2(0, 0);
-const smoothness = 0.08; // Facteur de lissage du mouvement
+const smoothness = 0.1; // Réduit pour un suivi plus immédiat
+const velocitySmoothness = 0.05; // Réduit pour capturer les mouvements rapides
 
 // Variables pour les interactions
 let clicks = [];
@@ -20,10 +21,10 @@ const CLICK_DURATION = 3.0; // Durée de vie d'un clic en secondes
 // Couleur de fond plus douce
 scene.background = new THREE.Color(0x7ab421).multiplyScalar(0.85);
 
-// Gestionnaire d'événements pour la souris
+// Gestionnaire d'événements pour la souris - corrigé pour un meilleur suivi
 document.addEventListener('mousemove', (event) => {
     // Obtenir la position du conteneur Three.js
-    const container = document.getElementById('threejs-container');
+    const container = renderer.domElement;
     const rect = container.getBoundingClientRect();
     
     // Calculer la position relative à la fenêtre
@@ -37,10 +38,19 @@ document.addEventListener('mousemove', (event) => {
 
 // Gestionnaire pour les clics
 document.addEventListener('click', (event) => {
-    const clickPos = new THREE.Vector2(
-        (event.clientX / window.innerWidth) * 2 - 1,
-        -(event.clientY / window.innerHeight) * 2 + 1
-    );
+    // Obtenir la position du conteneur Three.js
+    const container = renderer.domElement;
+    const rect = container.getBoundingClientRect();
+    
+    // Calculer la position relative à la fenêtre
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // Convertir en coordonnées normalisées (-1 à 1)
+    const clickX = (x / rect.width) * 2 - 1;
+    const clickY = -(y / rect.height) * 2 + 1;
+    
+    const clickPos = new THREE.Vector2(clickX, clickY);
     
     clicks.push({
         position: clickPos.clone(),
@@ -55,7 +65,7 @@ document.addEventListener('click', (event) => {
 });
 
 // Créer un plan avec du bruit pour le fond
-const planeGeometry = new THREE.PlaneGeometry(5, 5, 200, 200);
+const planeGeometry = new THREE.PlaneGeometry(10, 10, 200, 200);
 
 // Créer les glaçons avec une géométrie plus précise pour un aspect cubique
 const iceGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.15, 3, 3, 3);
@@ -155,18 +165,19 @@ const iceMaterial = new THREE.ShaderMaterial({
 
 // Créer plusieurs glaçons avec des tailles variées pour mieux percevoir la 3D
 const iceCubes = [];
-const numIceCubes = 15; // Plus de glaçons
+const numIceCubes = 25; // Augmenté de 15 à 25 glaçons
 for (let i = 0; i < numIceCubes; i++) {
     const iceCube = new THREE.Mesh(iceGeometry, iceMaterial.clone());
     
     // Varier légèrement les tailles pour renforcer l'effet 3D
-    const scale = 0.9 + Math.random() * 0.4;
+    const scale = 1.0 + Math.random() * 0.8; // Augmenté la taille minimale et maximale
     iceCube.scale.set(scale, scale, scale);
     
+    // Positionner les glaçons dans une zone plus large
     iceCube.position.set(
-        (Math.random() - 0.5) * 3.0,
-        (Math.random() - 0.5) * 1.0,
-        (Math.random() - 0.5) * 3.0
+        (Math.random() - 0.5) * 4.0, // Zone plus large en X
+        (Math.random() - 0.5) * 1.5, // Zone plus large en Y
+        (Math.random() - 0.5) * 4.0  // Zone plus large en Z
     );
     
     // Rotation aléatoire pour éviter l'alignement des faces
@@ -183,7 +194,7 @@ for (let i = 0; i < numIceCubes; i++) {
     scene.add(iceCube);
 }
 
-// Créer un plan avec du bruit pour le fond
+// Créer un plan avec du bruit pour le fond - Shaders améliorés pour meilleur suivi de souris
 const planeMaterial = new THREE.ShaderMaterial({
     uniforms: {
         uTime: { value: 0 },
@@ -193,9 +204,9 @@ const planeMaterial = new THREE.ShaderMaterial({
         uClicks: { value: [] },
         uClicksCount: { value: 0 },
         uClicksDuration: { value: CLICK_DURATION },
-        uWaveHeight: { value: 0.010 },
-        uWaveSpeed: { value: 1.5 },
-        uWaveFrequency: { value: 2.0 }
+        uWaveHeight: { value: 0.003 },
+        uWaveSpeed: { value: .5 },
+        uWaveFrequency: { value: 4.0 }
     },
     vertexShader: `
         uniform float uTime;
@@ -210,6 +221,7 @@ const planeMaterial = new THREE.ShaderMaterial({
         
         varying vec2 vUv;
         varying float vElevation;
+        varying vec2 vMousePosition; // Nouvelle variable pour passer la position à utiliser dans le fragment shader
         
         // Fonction de bruit améliorée
         float noise(vec2 p) {
@@ -218,18 +230,21 @@ const planeMaterial = new THREE.ShaderMaterial({
         
         // Fonction de vagues multiples plus douces
         float wave(vec2 position, float time) {
+            // Ajuster les coordonnées pour couvrir tout l'espace
+            vec2 scaledPos = position * 1.5;
+            
             // Vague principale plus étroite
-            float wave1 = sin(position.x * uWaveFrequency + time * uWaveSpeed) * uWaveHeight;
+            float wave1 = sin(scaledPos.x * uWaveFrequency + time * uWaveSpeed) * uWaveHeight * 1.2; // Augmenté de 20%
             
             // Vague secondaire perpendiculaire
-            float wave2 = sin(position.y * uWaveFrequency * 0.8 + time * uWaveSpeed * 0.7) * uWaveHeight * 0.6;
+            float wave2 = sin(scaledPos.y * uWaveFrequency * 0.9 + time * uWaveSpeed * 0.7) * uWaveHeight * 0.7; // Augmenté de 10%
             
             // Vague diagonale plus prononcée
-            float wave3 = sin((position.x + position.y) * uWaveFrequency * 0.6 + time * uWaveSpeed * 0.9) * uWaveHeight * 0.4;
+            float wave3 = sin((scaledPos.x + scaledPos.y) * uWaveFrequency * 0.7 + time * uWaveSpeed * 0.9) * uWaveHeight * 0.5; // Augmenté de 10%
             
             // Ajouter un peu de bruit pour plus de texture
-            float noiseValue = noise(vec2(position.x * 0.5 + time * 0.05, position.y * 0.5 + time * 0.05));
-            float noiseWave = noiseValue * uWaveHeight * 0.2;
+            float noiseValue = noise(vec2(scaledPos.x * 0.3 + time * 0.03, scaledPos.y * 0.3 + time * 0.03));
+            float noiseWave = noiseValue * uWaveHeight * 0.2; // Augmenté de 0.15 à 0.2
             
             return wave1 + wave2 + wave3 + noiseWave;
         }
@@ -237,8 +252,11 @@ const planeMaterial = new THREE.ShaderMaterial({
         void main() {
             vec3 pos = position;
             
+            // Utiliser les coordonnées UV pour les vagues
+            vec2 uvPos = uv * 2.0 - 1.0;
+            
             // Effet de vagues de base
-            float baseWave = wave(pos.xy, uTime);
+            float baseWave = wave(uvPos, uTime);
             
             // Effet des clics (cercles concentriques)
             float clicksElevation = 0.0;
@@ -252,19 +270,19 @@ const planeMaterial = new THREE.ShaderMaterial({
                 if(timeSinceClick < uClicksDuration) {
                     float radius = timeSinceClick * 0.3;
                     float fadeOut = 1.0 - (timeSinceClick / uClicksDuration);
-                    float wave = sin(10.0 * distance(pos.xy, clickPos) - timeSinceClick * 5.0);
-                    float mask = smoothstep(radius + 0.1, radius - 0.1, distance(pos.xy, clickPos));
+                    float wave = sin(10.0 * distance(uvPos, clickPos) - timeSinceClick * 5.0);
+                    float mask = smoothstep(radius + 0.1, radius - 0.1, distance(uvPos, clickPos));
                     clicksElevation += wave * mask * 0.01 * fadeOut;
                 }
             }
             
-            // Effet de trace de souris plus doux
-            float distToMouse = distance(pos.xy, uMouse);
+            // Effet de trace de souris plus subtil
+            float distToMouse = distance(uvPos, uMouse);
             float mouseSpeed = length(uMouseVelocity);
-            float mouseTrail = exp(-distToMouse * 10.0) * mouseSpeed * 0.3;
+            float mouseTrail = exp(-distToMouse * 20.0) * mouseSpeed * 0.1; // Réduit de 0.15 à 0.1
             
-            // Effet d'ondulation autour de la souris plus doux
-            float currentMouseEffect = sin(distToMouse * 5.0 - uTime * 2.0) * exp(-distToMouse * 3.0) * 0.01;
+            // Effet d'ondulation autour de la souris plus précis
+            float currentMouseEffect = sin(distToMouse * 8.0 - uTime * 2.0) * exp(-distToMouse * 8.0) * 0.004; // Réduit de 0.006 à 0.004
             
             // Combiner tous les effets
             float finalElevation = baseWave + clicksElevation + mouseTrail + currentMouseEffect;
@@ -278,17 +296,24 @@ const planeMaterial = new THREE.ShaderMaterial({
             // Variables pour le fragment shader
             vUv = uv;
             vElevation = finalElevation;
+            vMousePosition = uMouse; // Passer la position de la souris au fragment shader
         }
     `,
     fragmentShader: `
         uniform vec3 uColor;
         uniform float uTime;
+        uniform vec2 uMouse;
+        uniform vec2 uMouseVelocity;
         varying vec2 vUv;
         varying float vElevation;
+        varying vec2 vMousePosition;
         
         void main() {
+            // Coordonnées normalisées pour le calcul des effets
+            vec2 normalizedPos = vUv * 2.0 - 1.0;
+            
             // Calculer l'intensité en fonction de l'élévation avec plus de contraste
-            float intensity = vElevation * 15.0 + 0.9; // Augmenté le contraste
+            float intensity = vElevation * 20.0 + 0.9;
             
             // Couleur de base: vert matcha
             vec3 baseColor = uColor;
@@ -296,18 +321,18 @@ const planeMaterial = new THREE.ShaderMaterial({
             // Couleur plus claire pour les hauteurs
             vec3 highlightColor = vec3(1.0);
             
-            // Effet de brillance sur les vagues plus prononcé
-            float waveHighlight = sin(vUv.x * 8.0 + uTime) * sin(vUv.y * 8.0 + uTime) * 0.1 + 0.9;
+            // Effet de brillance sur les vagues plus subtil
+            float waveHighlight = sin(vUv.x * 10.0 + uTime) * sin(vUv.y * 10.0 + uTime) * 0.1 + 0.9;
             
-            // Mélanger les couleurs en fonction de l'intensité et de la brillance avec plus de contraste
+            // Mélanger les couleurs en fonction de l'intensité et de la brillance avec moins de blanc
             vec3 finalColor = mix(baseColor, highlightColor, 
-                smoothstep(0.9, 1.1, intensity) * 0.3 + 
+                smoothstep(0.9, 1.1, intensity) * 0.35 + 
                 waveHighlight * 0.2
             );
             
-            // Effet de vignette plus prononcé
+            // Effet de vignette plus subtil
             float vignette = smoothstep(0.8, 0.2, length(vUv - 0.5));
-            finalColor = mix(finalColor * 0.9, finalColor, vignette);
+            finalColor = mix(finalColor * 0.95, finalColor, vignette);
             
             // Ajouter un effet de profondeur plus marqué
             float depth = 1.0 - vElevation * 0.5;
@@ -388,13 +413,13 @@ loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json
                 float noiseValue = noise(vec2(pos.x * 1.5 + uTime * 0.2, pos.y * 1.5));
                 float noiseWave = noiseValue * 0.015;
                 
-                // Effet de vagues autour de la souris plus stable
-                float mouseWave = circleWave(pos.xy, uMouse, uTime, 0.3);
+                // Effet de vagues autour de la souris plus réactif
+                float mouseWave = circleWave(pos.xy, uMouse, uTime, 0.5) * 1.5; // Augmenté
                 
-                // Effet de trace de souris plus doux
+                // Effet de trace de souris plus intense
                 float mouseSpeed = length(uMouseVelocity);
                 float distToMouse = distance(pos.xy, uMouse);
-                float mouseTrail = exp(-distToMouse * 2.5) * clampValue(mouseSpeed, 0.0, 0.7) * 0.5;
+                float mouseTrail = exp(-distToMouse * 3.0) * clampValue(mouseSpeed, 0.0, 1.0) * 0.8; // Plus intense
                 
                 // Effet de fusion secondaire plus doux
                 float secondaryMelt = smoothstep(0.0, 0.25, distToMouse) * 0.03;
@@ -422,6 +447,7 @@ loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json
         `,
         fragmentShader: `
             uniform vec2 uMouse;
+            uniform float uTime;
             varying vec2 vUv;
             varying vec3 vNormal;
             varying vec2 vPosition;
@@ -434,21 +460,26 @@ loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json
                 // Effet de fusion plus doux
                 float meltEffect = smoothstep(0.0, 1.0, vPosition.y) * 0.2;
                 
-                // Effet de diffusion à la souris plus stable
+                // Effet de diffusion à la souris plus intense et réactif
                 float dist = distance(vPosition, uMouse);
-                float glow = smoothstep(0.25, 0.0, dist);
+                float glow = smoothstep(0.3, 0.0, dist) * 2.0; // Plus intense et visible
                 
                 // Effet de brillance sur les vagues plus subtil
                 float waveHighlight = smoothstep(0.0, 0.1, vNormal.z);
+                
+                // Effet de halo lumineux pulsant autour de la souris
+                float halo = sin(uTime * 3.0 + dist * 10.0) * 0.5 + 0.5;
+                float pulseGlow = smoothstep(0.5, 0.0, dist) * halo * 0.4;
                 
                 // Effet de transparence pour la fusion plus doux
                 float alpha = 1.0 - meltEffect * 0.2;
                 
                 // Combiner tous les effets
                 vec3 baseColor = vec3(1.0) * (diffuse * 0.4 + 0.6);
-                vec3 glowColor = vec3(1.0) * glow * 0.6;
+                vec3 glowColor = vec3(1.0, 1.0, 1.0) * glow; // Blanc pur pour plus d'éclat
+                vec3 pulseColor = vec3(1.0, 1.0, 0.9) * pulseGlow; // Léger jaune pour le halo pulsant
                 vec3 highlightColor = vec3(1.0) * waveHighlight * 0.2;
-                vec3 finalColor = mix(baseColor + glowColor + highlightColor, vec3(0.0), meltEffect * 0.15);
+                vec3 finalColor = mix(baseColor + glowColor + highlightColor + pulseColor, vec3(0.0), meltEffect * 0.15);
                 
                 gl_FragColor = vec4(finalColor, alpha);
             }
@@ -478,17 +509,25 @@ camera.position.z = 2;
 function animate() {
     requestAnimationFrame(animate);
 
-    // Calculer la vélocité de la souris
-    mouseVelocity.x = targetMouse.x - prevMouse.x;
-    mouseVelocity.y = targetMouse.y - prevMouse.y;
-    
     // Mettre à jour la position précédente
     prevMouse.x = mouse.x;
     prevMouse.y = mouse.y;
 
-    // Interpolation plus rapide de la position de la souris
-    mouse.x += (targetMouse.x - mouse.x) * 0.2; // Augmenter la vitesse de suivi
-    mouse.y += (targetMouse.y - mouse.y) * 0.2;
+    // Appliquer l'interpolation linéaire pour un mouvement fluide mais direct
+    mouse.x += (targetMouse.x - mouse.x) * smoothness;
+    mouse.y += (targetMouse.y - mouse.y) * smoothness;
+
+    // Calculer la vélocité de la souris avec un lissage approprié
+    mouseVelocity.x = (mouse.x - prevMouse.x) / velocitySmoothness;
+    mouseVelocity.y = (mouse.y - prevMouse.y) / velocitySmoothness;
+
+    // Limiter la vélocité pour éviter les mouvements trop brusques
+    const maxVelocity = 0.5;
+    const velocityLength = Math.sqrt(mouseVelocity.x * mouseVelocity.x + mouseVelocity.y * mouseVelocity.y);
+    if (velocityLength > maxVelocity) {
+        mouseVelocity.x = (mouseVelocity.x / velocityLength) * maxVelocity;
+        mouseVelocity.y = (mouseVelocity.y / velocityLength) * maxVelocity;
+    }
 
     // Mettre à jour le temps actuel
     const currentTime = performance.now() * 0.001;
@@ -583,11 +622,25 @@ function animate() {
 
 animate();
 
-// Gestion du redimensionnement de la fenêtre
-window.addEventListener('resize', onWindowResize, false);
+// Fonction pour mettre à jour la taille du plan
+function updatePlaneSize() {
+    const aspect = window.innerWidth / window.innerHeight;
+    const planeSize = Math.max(window.innerWidth, window.innerHeight) * 0.001; // Ajustement de la taille
+    plane.scale.set(planeSize * aspect, planeSize, 1);
+}
 
-function onWindowResize() {
+// Appeler la fonction initialement
+updatePlaneSize();
+
+// Gestionnaire de redimensionnement
+window.addEventListener('resize', () => {
+    // Mettre à jour la taille de la caméra
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
+    
+    // Mettre à jour la taille du renderer
     renderer.setSize(window.innerWidth, window.innerHeight);
-}
+    
+    // Mettre à jour la taille du plan
+    updatePlaneSize();
+});
